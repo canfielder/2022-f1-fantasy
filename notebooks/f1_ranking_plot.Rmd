@@ -210,7 +210,6 @@ p <- ggplot(
 
 p
 ```
-
 ### Save
 ```{r}
 ggsave(
@@ -219,11 +218,12 @@ ggsave(
   device   = 'png',
   path     = './../data/plots/',
   scale = 1,
-  width = NA,
+  width = 16.2,
   height = 10,
   units = "in",
   dpi = 300,
   limitsize = TRUE
 )
 ```
+
 
