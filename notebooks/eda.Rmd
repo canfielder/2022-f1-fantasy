@@ -1,0 +1,346 @@
+---
+title: "EDA"
+output: html_document
+date: "2022-10-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose
+General scratch notebook for exploring fantasy f1 data.
+
+# Import / Setup
+## Packages
+
+```{r packages}
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(
+    'dplyr',
+    'forcats',
+    'ggplot2',
+    'janitor',
+    'lubridate',
+    'stringr'
+)
+
+```
+## Data
+```{r import_data}
+df_raw = read.csv(file = './../data/2022_f1_fantasy_points.csv')
+```
+
+# Processing
+## Clean Column Names
+```{r}
+df_raw <- df_raw %>%
+    janitor::clean_names()
+```
+
+## Convert Date Column
+```{r}
+df_raw <- df_raw %>% 
+    dplyr::mutate(
+        date = lubridate::mdy(date)
+    )
+```
+
+## Count Race Number
+```{r}
+df_raw <- df_raw %>%
+    arrange(date) %>% 
+    mutate(
+        race_number = row_number()
+    )
+```
+
+
+# EDA
+## Inspect
+```{r}
+df_raw %>% summary()
+```
+
+## Long Form Dataset
+```{r}
+df_raw_long <- df_raw %>% 
+    dplyr::select(-mega_driver) %>% 
+    tidyr::pivot_longer(
+        cols      = !c(track, location, date, race_number), 
+        names_to  = 'player',
+        values_to = 'points'
+        )
+
+df_raw_long
+
+```
+
+## Cummulative Points
+```{r}
+df_f1_cum <- df_raw_long %>% 
+    dplyr::arrange(date) %>% 
+    dplyr::group_by(player) %>% 
+    dplyr::mutate(
+        points_cum = cumsum(points)
+    )
+```
+
+## Relative Points
+```{r}
+# Determine Total Points
+df_total_points <- df_raw_long %>% 
+    group_by(date) %>% 
+    summarise(
+        points_total = sum(points)
+    ) %>% 
+    mutate(
+        points_total_cum = cumsum(points_total)
+    )
+
+# Join to Cumulative Points 
+df_f1_cum_rel <- df_f1_cum %>% 
+    left_join(
+        df_total_points,by = 'date'
+    ) %>% 
+    mutate(
+        rel_points = points_cum / points_total_cum
+    )
+
+```
+
+## Rank
+```{r}
+df_f1_rank <- df_f1_cum_rel %>% 
+    dplyr::arrange(
+        date, player, points_cum
+    ) %>% 
+    dplyr::group_by(
+        date
+    ) %>% 
+    mutate(rank = rank(-points_cum, ties.method = 'min'))
+
+df_f1_rank
+    
+```
+
+### Inspect
+```{r}
+df_f1_rank %>% 
+    tidyr::drop_na() %>% 
+    arrange(desc(date),rank) %>% 
+    group_by(location) %>% 
+    top_n(-3)
+```
+
+
+
+
+
+# Visuals
+## Drop NA Rows
+```{r}
+df_plot <- df_f1_rank %>% 
+    tidyr::drop_na()
+   
+df_name <- df_plot %>% 
+    filter(
+        race_number == max(df_plot$race_number)
+    ) %>% 
+    mutate(
+        label = str_to_title(player)
+    )
+
+df_name
+```
+
+## Color Palette
+```{r}
+color_pal <- c(
+    '#001219',
+    '#005F73',
+    '#0A9396',
+    '#94D2BD',
+    '#EE9B00',
+    '#BB3E03',
+    '#9B2226'
+)
+
+players <- c(
+    'scott',
+    'erin',
+    'kevin', 
+    'sydney',
+    'evan',
+    'kelsey',
+    'margret'
+)
+
+names(color_pal) <- players
+
+color_pal
+```
+
+
+## Bump Chart
+```{r fig.height=10}
+races <- df_plot %>% 
+    ungroup() %>%
+    select(location) %>% 
+    distinct() %>% 
+    pull()
+
+
+p <- ggplot(
+    data    = df_plot, 
+    mapping = aes(
+        x     = race_number,
+        y     = rank,
+        color = player,
+        )
+    ) +
+    geom_point(size = 5) +
+    geom_line(size = 2.5, ) +
+    geom_label(
+        data = df_name,
+        mapping = aes(
+            x = race_number, 
+            y = rank, 
+            label = label
+        ),
+        hjust = 0, 
+        nudge_x = 0.5, 
+        size = 13, 
+        label.size = NA
+        ) +
+    scale_x_continuous(
+        breaks = 1:max(df_plot$race_number),
+        labels = races, 
+        ) +
+    scale_y_reverse(breaks = 1:7) +
+    scale_color_manual(values = color_pal) +
+    # scale_color_brewer(
+    #     type = 'qual',
+    #     palette = 'Dark2'
+    #     ) +
+    labs(
+        title = 'F1 Fantasy Ranking By Race', 
+        x = '',
+        y = ''
+    ) +
+    coord_cartesian(clip = 'off') +
+    theme_classic() +
+    theme(
+        axis.line = element_line(size = 1.5),
+        axis.text.x = element_text(
+            hjust = 1,
+            angle = 45, 
+            size = 25
+            ),
+        axis.text.y = element_text(
+            hjust = 0,
+            size = 35,
+        ),
+        axis.ticks = element_blank(),
+        legend.position="none", 
+        plot.margin = margin(
+            t = 0, r = 100, b = 0, l = 0, 
+            unit = "pt"
+            ),
+        plot.title = element_text(
+            hjust = 0,
+            size = 40
+            )
+        )
+
+p
+
+ggsave(
+  filename = 'f1_fantasy_rank.png',
+  plot     = p,
+  device   = 'png',
+  path     = './../data/plots/',
+  scale = 1,
+  width = NA,
+  height = 10,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE
+)
+```
+
+## Points Chart % of Allotted
+```{r}
+races <- df_plot %>% 
+    ungroup() %>%
+    select(location) %>% 
+    distinct() %>% 
+    pull()
+
+
+p <- ggplot(
+    data    = df_plot, 
+    mapping = aes(
+        x     = race_number,
+        y     = rel_points,
+        color = player,
+        )
+    ) +
+    # geom_point(size = 5) +
+    geom_line(size = 1, ) +
+    # geom_label(
+    #     data = df_name,
+    #     mapping = aes(
+    #         x = race_number, 
+    #         y = rel_points, 
+    #         label = label
+    #     ),
+    #     hjust = 0, 
+    #     nudge_x = 0.5, 
+    #     size = 5, 
+    #     label.size = NA
+    #     ) +
+    # scale_x_continuous(
+    #     breaks = 1:max(df_plot$race_number),
+    #     labels = races, 
+    #     ) +
+    # scale_y_reverse(breaks = 1:7) +
+    scale_color_manual(values = color_pal) +
+    # scale_color_brewer(
+    #     type = 'qual',
+    #     palette = 'Dark2'
+    #     ) +
+    labs(
+        title = 'F1 Fantasy Ranking By Race', 
+        x = '',
+        y = ''
+    ) +
+    coord_cartesian(clip = 'off') +
+    theme_classic() +
+    theme(
+        axis.line = element_line(size = 1.5),
+        axis.text.x = element_text(
+            hjust = 1,
+            angle = 45, 
+            size = 25
+            ),
+        axis.text.y = element_text(
+            hjust = 0,
+            size = 35,
+        ),
+        axis.ticks = element_blank(),
+        legend.position="none", 
+        plot.margin = margin(
+            t = 0, r = 100, b = 0, l = 0, 
+            unit = "pt"
+            ),
+        plot.title = element_text(
+            hjust = 0,
+            size = 40
+            )
+        )
+
+p
+```
+
