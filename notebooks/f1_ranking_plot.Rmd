@@ -216,7 +216,7 @@ ggsave(
   filename = 'f1_fantasy_rank.png',
   plot     = p,
   device   = 'png',
-  path     = './../data/plots/',
+  path     = './../data/plots',
   scale = 1,
   width = 16.2,
   height = 10,
