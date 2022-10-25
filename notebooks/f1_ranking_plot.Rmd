@@ -212,6 +212,48 @@ p
 ```
 ### Save
 ```{r}
+
+filename_prefix = 'f1_fantasy_rank'
+
+# Define File Name
+race_location <- df_plot %>% 
+    tail(1) %>% 
+    pull(location)
+
+race_date <- df_plot %>% 
+    tail(1) %>% 
+    pull(date)
+    
+file_name_wo_ext <- paste(
+    filename_prefix,
+    race_date,
+    race_location,
+    sep = '_'
+    )
+
+file_name_wo_ext <- gsub(" ", "-", file_name_wo_ext)
+
+file_name <- paste(
+    file_name_wo_ext,
+    '.png',
+    sep = ''
+)
+
+# Save copy with race specific name
+ggsave(
+  filename = file_name,
+  plot     = p,
+  device   = 'png',
+  path     = './../data/plots',
+  scale = 1,
+  width = 16.2,
+  height = 10,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE
+)
+
+# Save general copy
 ggsave(
   filename = 'f1_fantasy_rank.png',
   plot     = p,
