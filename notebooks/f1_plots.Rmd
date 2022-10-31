@@ -88,6 +88,17 @@ df_f1_cum <- points.df_long %>%
     )
 ```
 
+## Point Differential
+```{r}
+df_f1_point_diff <- df_f1_cum %>% 
+    group_by(race_number) %>% 
+    mutate(
+        max_points = max(points_cum),
+        max_points_delta = points_cum - max_points
+    )
+```
+
+
 ## Rank
 ```{r}
 df_f1_rank <- df_f1_cum %>% 
@@ -102,26 +113,7 @@ df_f1_rank <- df_f1_cum %>%
 
 
 # Visuals
-## Visual Specific Processing
-### Drop NA Rows
-```{r}
-df_plot <- df_f1_rank %>% 
-    tidyr::drop_na()
-
-df_f1_rank
-```
-
-### Create Dataset for Far Right Side Labels
-```{r}
-df_name <- df_plot %>% 
-    filter(
-        race_number == max(df_plot$race_number)
-    ) %>% 
-    mutate(
-        label = str_to_title(player)
-    )
-```
-
+## Visual Specifics
 ### Define Color Palette
 ```{r}
 color_pal <- c(
@@ -148,16 +140,39 @@ players <- c(
 names(color_pal) <- players
 ```
 
-## Bump Chart
-### Generate Plot
-```{r fig.height=10}
+### Defined Shared Inputs
+```{r}
 races <- df_plot %>% 
     ungroup() %>%
     select(location) %>% 
     distinct() %>% 
     pull()
+```
 
 
+## Bump Chart
+### Processing
+#### Drop NA Rows
+```{r}
+df_plot <- df_f1_rank %>% 
+    tidyr::drop_na()
+
+df_plot
+```
+
+#### Create Dataset for Far Right Side Labels
+```{r}
+df_name <- df_plot %>% 
+    filter(
+        race_number == max(df_plot$race_number)
+    ) %>% 
+    mutate(
+        label = str_to_title(player)
+    )
+```
+
+### Generate Plot
+```{r fig.height=10}
 p <- ggplot(
     data    = df_plot, 
     mapping = aes(
@@ -279,4 +294,144 @@ ggsave(
 )
 ```
 
+## Point Differential
+### Processing
+#### Drop NA Rows
+```{r}
+df_plot <- df_f1_point_diff %>% 
+    tidyr::drop_na()
+
+df_plot
+```
+
+#### Create Dataset for Far Right Side Labels
+```{r}
+df_name <- df_plot %>% 
+    filter(
+        race_number == max(df_plot$race_number)
+    ) %>% 
+    mutate(
+        label = str_to_title(player)
+    )
+```
+
+### Generate Plot
+```{r  fig.height=10, fig.width= 16}
+p <- ggplot(
+    data    = df_plot, 
+    mapping = aes(
+        x     = race_number,
+        y     = max_points_delta,
+        color = player,
+        )
+    ) +
+    geom_point(size = 5) +
+    geom_line(size = 2.5, ) +
+    ggrepel::geom_text_repel(
+        data = df_name,
+        mapping = aes(
+            x = race_number, 
+            y = max_points_delta, 
+            label = label
+        ),
+        hjust = 0, 
+        nudge_x = 01,
+        size = 13, 
+        segment.color = NA,
+        direction = "y"
+        ) +
+    scale_x_continuous(
+        breaks = 1:max(df_plot$race_number),
+        labels = races, 
+        limits = c(1, length(races) + 4)
+        ) +
+    scale_color_manual(values = color_pal) +
+    labs(
+        title = 'F1 Fantasy Point Differential To Leader', 
+        x = '',
+        y = ''
+    ) +
+    theme_classic() +
+    theme(
+        axis.line = element_line(size = 1.5),
+        axis.text.x = element_text(
+            hjust = 1,
+            angle = 45, 
+            size = 25
+            ),
+        axis.text.y = element_text(
+            hjust = 0,
+            size = 35,
+        ),
+        axis.ticks = element_blank(),
+        legend.position="none", 
+        plot.margin = margin(
+            t = 0, r = 0, b = 0, l = 0, 
+            unit = "pt"
+            ),
+        plot.title = element_text(
+            hjust = 0,
+            size = 40
+            )
+        )
+
+p
+```
+
+### Save
+```{r}
+filename_prefix = 'f1_fantasy_point_diff'
+
+# Define File Name
+race_location <- df_plot %>% 
+    tail(1) %>% 
+    pull(location)
+
+race_date <- df_plot %>% 
+    tail(1) %>% 
+    pull(date)
+    
+file_name_wo_ext <- paste(
+    filename_prefix,
+    race_date,
+    race_location,
+    sep = '_'
+    )
+
+file_name_wo_ext <- gsub(" ", "-", file_name_wo_ext)
+
+file_name <- paste(
+    file_name_wo_ext,
+    '.png',
+    sep = ''
+)
+
+# Save copy with race specific name
+ggsave(
+  filename = file_name,
+  plot     = p,
+  device   = 'png',
+  path     = './../data/plots',
+  scale = 1,
+  width = 16.2,
+  height = 10,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE
+)
+
+# Save general copy
+ggsave(
+  filename = 'f1_fantasy_point_diff.png',
+  plot     = p,
+  device   = 'png',
+  path     = './../data/plots',
+  scale = 1,
+  width = 16.2,
+  height = 10,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE
+)
+```
 
