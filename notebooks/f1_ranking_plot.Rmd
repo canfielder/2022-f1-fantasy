@@ -23,33 +23,43 @@ pacman::p_load(
     'ggplot2',
     'janitor',
     'lubridate',
+    'readr',
     'stringr'
 )
 
 ```
+
 ## Data
 ```{r import_data}
-df_raw = read.csv(file = './../data/2022_f1_fantasy_points.csv')
+url <- 'https://docs.google.com/spreadsheets/d/117GH1E_WIYAdbpFAfuC-Y9Pz_652qbE5mZ8PQfSV4Ig/edit?usp=sharing'
+ssid <- googlesheets4::as_sheets_id(url)
+
+points.df <- googlesheets4::range_speedread(
+    ss = ssid, 
+    range = "Sheet1!A:K", 
+    col_types = readr::cols(
+        .default      = readr::col_integer(), 
+        Date          = readr::col_date('%m/%d/%Y'),
+        Track         = readr::col_character(),
+        Location      = readr::col_character(),
+        'Mega Driver' = readr::col_character()
+        )
+)
+
+
+points.df
 ```
 
 # Processing
 ## Clean Column Names
 ```{r}
-df_raw <- df_raw %>%
+points.df <- points.df %>%
     janitor::clean_names()
-```
-
-## Convert Date Column
-```{r}
-df_raw <- df_raw %>% 
-    dplyr::mutate(
-        date = lubridate::mdy(date)
-    )
 ```
 
 ## Count Race Number
 ```{r}
-df_raw <- df_raw %>%
+points.df <- points.df %>%
     arrange(date) %>% 
     mutate(
         race_number = row_number()
@@ -58,7 +68,7 @@ df_raw <- df_raw %>%
 
 ## Long Form Dataset
 ```{r}
-df_raw_long <- df_raw %>% 
+points.df_long <- points.df %>% 
     dplyr::select(-mega_driver) %>% 
     tidyr::pivot_longer(
         cols      = !c(track, location, date, race_number), 
@@ -70,7 +80,7 @@ df_raw_long <- df_raw %>%
 
 ## Cummulative Points
 ```{r}
-df_f1_cum <- df_raw_long %>% 
+df_f1_cum <- points.df_long %>% 
     dplyr::arrange(date) %>% 
     dplyr::group_by(player) %>% 
     dplyr::mutate(
@@ -97,6 +107,8 @@ df_f1_rank <- df_f1_cum %>%
 ```{r}
 df_plot <- df_f1_rank %>% 
     tidyr::drop_na()
+
+df_f1_rank
 ```
 
 ### Create Dataset for Far Right Side Labels
@@ -212,7 +224,6 @@ p
 ```
 ### Save
 ```{r}
-
 filename_prefix = 'f1_fantasy_rank'
 
 # Define File Name
