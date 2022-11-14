@@ -142,8 +142,9 @@ names(color_pal) <- players
 
 ### Defined Shared Inputs
 ```{r}
-races <- df_plot %>% 
+races <- df_f1_rank %>% 
     ungroup() %>%
+    tidyr::drop_na() %>% 
     select(location) %>% 
     distinct() %>% 
     pull()
@@ -182,7 +183,7 @@ p <- ggplot(
         )
     ) +
     geom_point(size = 5) +
-    geom_line(size = 2.5, ) +
+    geom_line(size = 2.5) +
     geom_label(
         data = df_name,
         mapping = aes(
@@ -237,6 +238,7 @@ p <- ggplot(
 
 p
 ```
+
 ### Save
 ```{r}
 filename_prefix = 'f1_fantasy_rank'
@@ -299,9 +301,10 @@ ggsave(
 #### Drop NA Rows
 ```{r}
 df_plot <- df_f1_point_diff %>% 
-    tidyr::drop_na()
-
-df_plot
+    tidyr::drop_na() %>% 
+    mutate(
+        max_points_delta_abs = abs(max_points_delta)
+    )
 ```
 
 #### Create Dataset for Far Right Side Labels
@@ -317,11 +320,15 @@ df_name <- df_plot %>%
 
 ### Generate Plot
 ```{r  fig.height=10, fig.width= 16}
+y_axis_bound <- max(df_plot$max_points_delta_abs)
+y_axis_breaks <- seq(from = 100, to = y_axis_bound, by = 100)
+
+
 p <- ggplot(
     data    = df_plot, 
     mapping = aes(
         x     = race_number,
-        y     = max_points_delta,
+        y     = max_points_delta_abs,
         color = player,
         )
     ) +
@@ -331,7 +338,7 @@ p <- ggplot(
         data = df_name,
         mapping = aes(
             x = race_number, 
-            y = max_points_delta, 
+            y = max_points_delta_abs, 
             label = label
         ),
         hjust = 0, 
@@ -345,22 +352,30 @@ p <- ggplot(
         labels = races, 
         limits = c(1, length(races) + 4)
         ) +
+    scale_y_reverse(
+        breaks = y_axis_breaks,
+        # labels = y_axis_breaks
+    ) +
     scale_color_manual(values = color_pal) +
     labs(
         title = 'F1 Fantasy Point Differential To Leader', 
         x = '',
-        y = ''
+        y = 'Points From Leader'
     ) +
     theme_classic() +
     theme(
         axis.line = element_line(size = 1.5),
+        axis.title.y = element_text(
+            hjust = 0.95,
+            size = 35
+            ),
         axis.text.x = element_text(
             hjust = 1,
             angle = 45, 
             size = 25
             ),
         axis.text.y = element_text(
-            hjust = 0,
+            hjust = 1,
             size = 35,
         ),
         axis.ticks = element_blank(),
