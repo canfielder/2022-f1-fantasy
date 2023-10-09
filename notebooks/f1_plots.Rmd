@@ -31,12 +31,12 @@ pacman::p_load(
 
 ## Data
 ```{r import_data}
-url <- 'https://docs.google.com/spreadsheets/d/117GH1E_WIYAdbpFAfuC-Y9Pz_652qbE5mZ8PQfSV4Ig/edit?usp=sharing'
+url <- 'https://docs.google.com/spreadsheets/d/17xV0x__1V6_5GnWVG04m3g2es39yrqpZFnipXtswehc/edit#gid=0'
 ssid <- googlesheets4::as_sheets_id(url)
 
 points.df <- googlesheets4::range_speedread(
     ss = ssid, 
-    range = "Sheet1!A:K", 
+    range = "Sheet1!A:J", 
     col_types = readr::cols(
         .default      = readr::col_integer(), 
         Date          = readr::col_date('%m/%d/%Y'),
@@ -57,6 +57,7 @@ points.df <- points.df %>%
     janitor::clean_names()
 ```
 
+
 ## Count Race Number
 ```{r}
 points.df <- points.df %>%
@@ -69,13 +70,19 @@ points.df <- points.df %>%
 ## Long Form Dataset
 ```{r}
 points.df_long <- points.df %>% 
-    dplyr::select(-mega_driver) %>% 
     tidyr::pivot_longer(
-        cols      = !c(track, location, date, race_number), 
+        cols      = !c(location, date, track, race_number), 
         names_to  = 'player',
         values_to = 'points'
         )
+```
 
+## Create Name from Label
+```{r}
+points.df_long <- points.df_long %>%
+  mutate(
+      player_name = stringr::str_split_i(player, pattern = '_', 1)
+    )
 ```
 
 ## Cummulative Points
@@ -168,8 +175,10 @@ df_name <- df_plot %>%
         race_number == max(df_plot$race_number)
     ) %>% 
     mutate(
-        label = str_to_title(player)
+        label = str_to_title(player_name)
     )
+
+df_name
 ```
 
 ### Generate Plot
@@ -179,7 +188,7 @@ p <- ggplot(
     mapping = aes(
         x     = race_number,
         y     = rank,
-        color = player,
+        color = player_name,
         )
     ) +
     geom_point(size = 5) +
@@ -314,7 +323,7 @@ df_name <- df_plot %>%
         race_number == max(df_plot$race_number)
     ) %>% 
     mutate(
-        label = str_to_title(player)
+        label = str_to_title(player_name)
     )
 ```
 
@@ -329,7 +338,7 @@ p <- ggplot(
     mapping = aes(
         x     = race_number,
         y     = max_points_delta_abs,
-        color = player,
+        color = player_name,
         )
     ) +
     geom_point(size = 5) +
